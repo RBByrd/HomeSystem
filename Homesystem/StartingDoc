@@ -1,0 +1,123 @@
+This project will look to automate the St Paul home with the use of a central computer system
+
+Computer system
+	Raspberry Pi
+	Arduino
+
+Electronics
+	//installed
+
+	//wired ready to be installed
+		Magnetic switches
+			There are many installed in the home that are currently attached to the unused alarm system.
+			Doors
+			Windows
+		Motion Sensor
+			A single motion sensor was insalled in the living room that was used by the alarm system
+			The motion system has not been tested, and is currently uninstalled, but the wiring is still intact.
+
+	//needs to be wired
+		Ethernet cabling
+			To best suit the home there are number of different ways that the ethernet can be run through the home. This is a suggestion
+				Utility closet
+					The most central location of the home
+					The alarm system is there
+					Will require 4 wires to be run to the top floor
+						1 (3 total) for each non bathroom room
+							will there be a reason to run ethernet to the bathroom?
+						1 for future camera system
+							This last one could be run to a switch for PoE devices including, but not limited to the cameras,
+								The location of this switch should be in an air conditioned location, as it will probably use a battery backup
+					Will require 3 cables to be run for the downstairs rooms.
+						1 for living room
+							could be run through the crawspace
+						1 for the game//dining room
+							could be run through the crawl space
+						1 for the kitchen
+							probably won't be done until the kitchen is remodeled
+		RGB Lights
+			locations
+				Outside Under West overhang
+				Outside Under backyard patio
+				Living room center beam
+		Alarm Display
+			Touch screen display to replace the old alarm keypad
+		Doorbell//camera
+
+
+
+Applications
+	//Alarm
+		Adriuno
+		Use the existing alarm devices and wiring to monitor the home
+		Monitor
+		Report
+		Arm/Disarm
+			Sleep
+			Away
+		Horn
+
+	//Alarm Display
+		Python
+		Uses touch screen to interact with the alarm program
+
+	//Lights
+		Language TBD
+		install decorative RGB LEDs
+			locations
+				Outside Under West overhang
+				Outside Under backyard patio
+				Living room center beam
+
+	//Web interface
+		HTML interface that will give users the ability to interact with the home
+			
+		Local network only with possible online access in the future
+		
+		users
+			Admin
+				Home Owners only
+			Friend
+				Home Owner approved users with limited interactions
+			Guest
+				view only pages 
+
+		Pages
+			Home Overview
+				Brief description of the home and layout.
+					Bathroom locaitons
+
+				user access
+					Admin
+					Friend
+					Guest
+
+			Alarm
+				Current State of the home alarm system
+				Open doors and windows
+
+				User access
+					Admin Only
+
+			Bar
+				List of spirits
+				recipes with the current spirits
+				Admin and Friends can save favorites and add recipes to the list
+				User Access
+					Admin
+						Full access
+					Friend
+						Add recipes
+						Mark/Unmark Favorites
+					Guests
+						View Only
+			RGB Lights
+				Interact with decorative lights
+				User Access
+					Admin Only
+
+
+
+
+
+
