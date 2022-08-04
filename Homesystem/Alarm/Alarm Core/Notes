@@ -1,0 +1,32 @@
+The Alarm core will be an arduino based model that will used as an IO board
+
+There are 4 Alarm Zones and the Horn While the alarm zones have closed switches the area is secure.
+
+Zone 1
+	Front Door 
+	Dining Room Window
+Zone 2
+	Living Room Window
+Zone 3
+	Bathroom Window
+	4 Kitchen Windows
+	Back Door
+Zone 4
+	Side Door
+Horn
+	Note: The horn will need to be driven by another power source. The IO port should control a relay to sound the Horn.
+
+Functions
+
+While all areas are secure and alarm system is disabled the alarm system can be actived and the horn is silent
+
+	If zone becomes unsecure the horn chimes
+
+		The alarm system cannot be activated
+
+	If the alarm system is set to home
+
+		While the alarm is set to home
+			The alarm can de deactived
+
+			if a zone 
