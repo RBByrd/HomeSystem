@@ -30,3 +30,23 @@ While all areas are secure and alarm system is disabled the alarm system can be 
 			The alarm can de deactived
 
 			if a zone 
+
+The alarm will utilize the EEPROM of the arduino so save information.
+	-Passcode
+	-settings
+	-Whether the system has been initailized or not
+	-which zones the user would like to monitor
+	-if the system has been armed.
+		-this will be the most common change of the system
+		-estimating 2 changes a day (alarm active, deactivate)
+		-Note: An EEPROM write takes 3.3 ms to complete. The EEPROM memory has a specified life of 100,000 write/erase cycles, so you may need to be careful about how often you write to it.
+		-this would give the alarm about a ~137 year lifespan.
+		-Looking into the arduino forums this seems to be a per memory bit bases.
+		- if that is the case then the alarm state can be moved every 99,000 changes. 
+		-This would give the eeprom arduino a lifespan greater then the arduino as a whole
+		-The lifespan of the arduino board is estimated to be 20-30 years. (dependent on the running conditions)
+	-the alarm state address
+		-this may not be needed as stated above the EEPROM should probably outlast the arduino. even at an alarm state change of 8 times a day (estimated 34 years.)
+
+
+Research Arduino Watchdog
