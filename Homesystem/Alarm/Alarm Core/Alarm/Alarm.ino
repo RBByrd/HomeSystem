@@ -4,8 +4,8 @@
    * A basic alarm to function for basic home use.
    * not meant for criminal protection or to be used as such
    * 
-   * This code is meant to get use out of an alarm system that is no longer in use but the hardware is still installed
-   * It is recommended to get an alamr service. No liability is to be taken by the author or anyone that modifies this code.
+   * This code is meant to use alarm devices from an older install. 
+   * It is recommended to get an alarm service. No liability is to be taken by the author or anyone that modifies this code.
    * 
    */
   
@@ -20,12 +20,15 @@
   //EEProm Variables: Information that we want stored in the case of lost power the system can return to original state on startup
   int EEAddIntialized = 0;
   byte EEIntialized;
-  int EEAddArmed = 4;
-  byte EEArmed;
-  int EEAddPassword = 8;
+  int EEAddPassword = 4;
   int EEPassword;
-  byte EEAddMonitoredZones = 12;
+  byte EEAddMonitoredZones = 8;
   byte EEMonitoredZones[5];
+  //This may not get used as a way to save the alarm from wear by activating and deactivating
+  //int EEAddArmedAddress = 28;
+  //byte  EEArmedAddress;
+  int EEAddArmed = 32;
+  int EEArmed;
 
 void setup() {
   // put your setup code here, to run once:
