@@ -3,11 +3,11 @@
 class Dbh {
 
 
-	private function connect() {
+	protected function connect() {
 		try{
 			$username = "root";
 			$password = "";
-			$dbh = new PDO('mysql:host=localhost;dbname=ooplogin', $username, $password);
+			$dbh = new PDO('mysql:host=localhost;dbname=houselogin', $username, $password);
 			return $dbh;
 		}
 		catch(PDOException $e) {
