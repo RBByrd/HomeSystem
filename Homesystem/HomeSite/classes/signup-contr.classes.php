@@ -1,6 +1,6 @@
 <?php
 
-class SignupContr {
+class SignupContr extends Signup {
 
 	private $uid;
 	private $pwd;
@@ -16,34 +16,34 @@ class SignupContr {
 
 	}
 
-	private function signupUser(){
+	public function signupUser(){
 		if($this-> emptyInput() == false){
 			// echo "Empty Input!"
-			header("location: ../index.php?error=emptyinput")
+			header("location: ../index.php?error=emptyinput");
 			exit();
 		}
 		if($this-> invalidUid() == false){
 			// echo "Invalid Username!"
-			header("location: ../index.php?error=username")
+			header("location: ../index.php?error=username");
 			exit();
 		}
 		if($this-> invalidEmail() == false){
 			// echo "Invalid Email!"
-			header("location: ../index.php?error=email")
+			header("location: ../index.php?error=email");
 			exit();
 		}
 		if($this-> pwdMatch() == false){
 			// echo "Passwords don't match!"
-			header("location: ../index.php?error=passwordmatch")
+			header("location: ../index.php?error=passwordmatch");
 			exit();
 		}
 		if($this-> uidTakenCheck() == false){
 			// echo "Username or Email taken!"
-			header("location: ../index.php?error=useroremailtaken")
+			header("location: ../index.php?error=useroremailtaken");
 			exit();
 		}
 
-		$this->setUser();
+		$this->setUser($this->uid,$this->pwd,$this->email);
 	}
 
 
@@ -86,7 +86,7 @@ class SignupContr {
 	//tests that the new passwords match
 	private function pwdMatch(){
 		$result;
-		if($this->pwd !== $this->pwdRepeat)){
+		if($this->pwd !== $this->pwdRepeat){
 			$result = false;
 		}
 		else {
@@ -99,7 +99,7 @@ class SignupContr {
 	private function uidTakenCheck(){
 		$result;
 		//uses checkUser function in  the signup.classes.php file
-		if($this->checkUser($this->uid, $this->$email)){
+		if(!$this->checkUser($this->uid, $this->email)){
 			$result = false;
 		}
 		else {

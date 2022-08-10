@@ -6,7 +6,7 @@ class Dbh {
 	protected function connect() {
 		try{
 			$username = "root";
-			$password = "";
+			$password = "excalibur22";
 			$dbh = new PDO('mysql:host=localhost;dbname=houselogin', $username, $password);
 			return $dbh;
 		}
