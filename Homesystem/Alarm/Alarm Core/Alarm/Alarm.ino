@@ -32,7 +32,7 @@
   int EEAddArmed = 32;
   int EEArmed;
 
-  //Initialize lcd varialble
+  //Initialize lcd variable
   LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 
@@ -45,7 +45,7 @@ void setup() {
   LCDInitialize();
   
   
-  //tests if the system has been setup before. Does not progress if the system has not been setup, or the memory has become corrupt.
+  //tests if the system has been setup before. Does not progress if the system has not been setup, or the memory has become corrupt. The system will stay in this function until the system is setup.
   setupCheck();
 
   //set the zones to the correct HW state
@@ -62,9 +62,14 @@ void setup() {
 //RTinteration is the latest time that the system has seen interaction.
 unsigned long RTinteraction = millis();
 
-//should be changed from 0 to 1 if there has been interation this cycle
-bool interaction;
-
+/* The interaction variable will denote current interaction 
+ * to keep this to one variable a bit will be assigened to the following
+ * serial    1
+ * Zones     8
+ * settings 12
+ * keypad   16
+ */
+unsigned int interaction;
 int serialData;
 
 
@@ -80,13 +85,13 @@ void loop() {
   interaction = 0;
 
   //loop inputs
-  //zoneRead(zoneStates, &interaction);
+  //zoneRead(zoneStates);
   //keyPad();
   serialInput();
 
 
   //system functions
-  setInteractionTime(interaction, &RTinteraction);
+  getInteractionTime(interaction);
 
   //loop outputs
   //printZones();
@@ -96,35 +101,18 @@ void loop() {
 
 }
 
-void serialInput(){
-   if (Serial.available() > 0){
-      serialData = Serial.read();
-      Serial.println(serialData);
-      interaction = 1;
-      return;
-    }
-  
-}
 
-void setInteractionTime(bool interaction, unsigned long *RTinteraction){
-  if(interaction == 1){
-    *RTinteraction = millis();
+
+
+
+void getInteractionTime(bool interaction){
+  if(interaction > 0){
+    RTinteraction = millis();
     return;
   }
   return;
 }
 
-//find the amount of time that has passed since RTstart to current time. maximuim amount of time is 4294967295 milliseconds, ~50 days
-unsigned long RTdifference(unsigned long RTstart){
-    unsigned long RTcurrent = millis();
-    
-    if(RTstart <= RTcurrent){
-        return RTcurrent - RTstart;  
-    }
-
-    return (4294967295 - RTstart) + RTcurrent;
-  
-}
 
 //Turns on backlight after an interaction, and the backlight stays on for a set amount of time after the last interaction.
 void LCDbacklight(unsigned long RTinteraction){
@@ -142,23 +130,66 @@ void LCDbacklight(unsigned long RTinteraction){
 
 }
 
+
 void LCDInitialize(){
   
   lcd.begin();
   lcd.backlight();
   lcd.clear();
-  lcd.setCursor(6,0);
-  lcd.print("Byrd");
-  lcd.setCursor(3,1);
-  lcd.print("Protection");
+  LCDmessageDisplay("      BYRD      ","   PROTECTION   ");
   delay(1000);
 }
 
-void LCDMessage(int message){
+
+
+//displays a message to the LCD. when not using top or bottom pass "NULL" string.
+void LCDmessageDisplay(String topMessage, String botMessage){
+    if(topMessage != "NULL"){
+        lcd.setCursor(0,0);
+        lcd.print(topMessage);
+    }
+    if(botMessage != "NULL"){
+        lcd.setCursor(0,1);
+        lcd.print(botMessage);
+    }
+    return;
+}
+
+
+void printZones(){
+  for (int i = 0; i < 5; i ++){
+    Serial.print("Zone ");
+    Serial.println(i+1);
+    Serial.println(zoneStates[i]);    
+  }
+}
+
+
+//find the amount of time that has passed since RTstart to current time. maximuim amount of time is 4294967295 milliseconds, ~50 days
+unsigned long RTdifference(unsigned long RTstart){
+    unsigned long RTcurrent = millis();
+    
+    if(RTstart <= RTcurrent){
+        return RTcurrent - RTstart;  
+    }
+
+    return (4294967295 - RTstart) + RTcurrent;
   
 }
 
 
+void serialInput(){
+   if (Serial.available() > 0){
+      serialData = Serial.read();
+      //Serial.println(serialData);
+      interaction = interaction | 1;
+      return;
+    }
+    interaction = interaction & 65,534;
+    serialData = 0;
+    return;
+  
+}
 
 
 void setupCheck(){
@@ -182,17 +213,6 @@ void setupCheck(){
     return;
 }
 
-void userSetup(byte newSetup){
-  byte input;
-
-  if(newSetup == 1){
-    lcd.setCursor(0,0);
-    lcd.print("Please Enter a 4");
-    lcd.setCursor(0,1);
-    lcd.print("Digit Passcode");
-  }
-  
-}
 
 void setZones(){
   //Zones 1-5 of the alarm system
@@ -206,12 +226,99 @@ void setZones(){
   
 }
 
-void printZones(){
-  for (int i = 0; i < 5; i ++){
-    Serial.print("Zone ");
-    Serial.println(i+1);
-    Serial.println(zoneStates[i]);    
+
+void siren(){
+  
+}
+
+
+
+void userSetup(byte newSetup){
+  byte input;
+  
+  
+  if(newSetup == 1){
+    bool passwordSet = 0;
+
+    
+    while(!passwordSet){
+      unsigned long int firstPassword = 0;
+      unsigned long int secPassword = 0;
+
+      //User enters passcode the first time
+      bool firstPasswordSet = 0;
+      LCDmessageDisplay(" Please Enter a ","4 Digit Passcode");
+      while(!firstPasswordSet){
+        //keyPad();
+        serialInput();
+        //Serial.println(firstPassword);
+        if(serialData > 47 && serialData < 58){
+          Serial.println(firstPassword);
+          Serial.println(serialData);
+          firstPassword = firstPassword * 100;
+          Serial.println(firstPassword);
+          firstPassword = firstPassword + serialData;
+          Serial.println("equals");
+          Serial.println(firstPassword);
+          //Serial.print(firstPassword);
+          if(firstPassword < 100){
+            lcd.clear();
+            lcd.setCursor(0,0);
+            lcd.print("4 Digit Passcode");
+            lcd.setCursor(0,1);
+            lcd.print("*");
+          }else{
+            lcd.print("*");
+          }
+          if(firstPassword > 48484847){
+            firstPasswordSet = 1;
+          }
+        }
+      
+      }
+
+      //User verifies the entered passcode
+      bool secPasswordSet = 0;
+      LCDmessageDisplay("Please Re-Enter ","  The Passcode  ");
+      while(!secPasswordSet){
+        //keyPad();
+        serialInput();
+        if(serialData > 47 && serialData < 58){
+          secPassword = ((secPassword * 100) + serialData);
+          if(secPassword < 100){
+            lcd.clear();
+            lcd.setCursor(0,0);
+            lcd.print("  The Passcode  ");
+            lcd.setCursor(0,1);
+            lcd.print("*");
+          }else{
+            lcd.print("*");
+          }
+          if(secPassword > 48484847){
+            secPasswordSet = 1;
+          }
+        }
+      
+      }
+
+      //verify that the passwords match
+      if(firstPassword == secPassword){
+         passwordSet = 1;
+         //hash password
+
+         //store password in EEPROM
+      }
+      if(firstPassword != secPassword){
+         LCDmessageDisplay(" The Passwords  "," Did Not Match  ");
+      }
+
+      //this among other things should be changed for changing the password on a live setup.
+      delay(5000);
+      
+    }
+    
   }
+  
 }
 
 
@@ -222,15 +329,5 @@ void zoneRead(byte *zoneStates){
   zoneStates[2] = digitalRead(8);
   zoneStates[3] = digitalRead(12);
   zoneStates[4] = digitalRead(13);
-  
-}
-
-void touchPad(){
-  //takes input from an external touchpad
-  
-}
-
-
-void siren(){
   
 }
