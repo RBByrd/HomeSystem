@@ -50,3 +50,51 @@ The alarm will utilize the EEPROM of the arduino so save information.
 
 
 Research Arduino Watchdog
+
+
+Current list of functions
+	
+	//the arduino stock functions
+	setup
+	loop
+
+	//Functions made for the program
+
+	getInteractionTime
+	LCDbacklight
+	LCDInitialize
+	LCDmessageDisplay
+	printZones
+	RTdifference
+	serialInput
+	setupCheck
+	setZones
+	siren
+	userSetup
+	zoneRead
+
+
+
+
+Global Variables
+
+	//IO State Variables
+	byte zoneStates[5];
+
+	//EEProm Variables: Information that we want stored in the case of lost power the system can return to original state on startup
+	int EEAddIntialized = 0;
+	byte EEIntialized;
+	int EEAddPassword = 4;
+	int EEPassword;
+	byte EEAddMonitoredZones = 8;
+	byte EEMonitoredZones[5];
+	int EEAddArmed = 32;
+	int EEArmed;
+
+	//Initialize lcd varialble
+	LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+	//Main loop
+	unsigned long RTinteraction = millis();
+	bool interaction;
+	int serialData;
