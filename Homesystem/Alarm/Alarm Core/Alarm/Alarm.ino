@@ -10,9 +10,14 @@
    */
   
   #include <Wire.h> 
+  
   //using https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library.git
   #include <LiquidCrystal_I2C.h>
   #include <EEPROM.h>
+  
+  //using https://github.com/Chris--A/Keypad
+  //note: debounce is built into this function and works well.
+  #include<Keypad.h>
 
   //Global Variables. Variables that will be used for the initial setup and during operation
   
@@ -32,10 +37,50 @@
   int EEAddArmed = 32;
   int EEArmed;
 
+
+  /*State:
+   * 0000 0000 New User 
+   * 0000 0001 New User setting PW
+   * 0000 0010 New User confirming PW
+   * 0000 0011 New User PW did not match
+   * 0000 0100 New User PW Set
+   * 0000 0101 New User setting Zones 1
+   * 
+   * 
+   * 
+   * 
+   */
+  byte currentState = 0;
+
+  //password function
+  unsigned long int firstPassword;
+  unsigned long int secPassword;
+  bool passwordSet;
+
   //Initialize lcd variable
   LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 
+  const byte KEYROWS = 4; 
+  const byte KEYCOLS = 4;
+  
+  // I converted the type char to type byte, but kept the same ASCII decimal equivalent.
+  //I believe this will allow for a bit more fluid like interaction between the user and the system
+  byte keys[KEYROWS][KEYCOLS] = 
+  {
+    {49,50,51,65}, //1,2,3,A
+    {52,53,54,66}, //4,5,6,B
+    {55,56,57,67}, //7,8,9,C
+    {42,48,35,68}  //*,0,#,D
+  };
+  byte keyRowPins[KEYROWS] = {6, 5, 3, 2}; 
+  byte keyColPins[KEYCOLS] = {12, 11, 10, 9};
+  
+  Keypad keypad = Keypad( makeKeymap(keys), keyRowPins, keyColPins, KEYROWS, KEYCOLS );
+  byte keypadData;
+
+
+  
 
 void setup() {
   // put your setup code here, to run once:
@@ -43,7 +88,6 @@ void setup() {
 
   //LCD boot
   LCDInitialize();
-  
   
   //tests if the system has been setup before. Does not progress if the system has not been setup, or the memory has become corrupt. The system will stay in this function until the system is setup.
   setupCheck();
@@ -70,6 +114,7 @@ unsigned long RTinteraction = millis();
  * keypad   16
  */
 unsigned int interaction;
+
 int serialData;
 
 
@@ -110,6 +155,19 @@ void getInteractionTime(bool interaction){
     RTinteraction = millis();
     return;
   }
+  return;
+}
+
+void keypadInput(){
+
+  keypadData = keypad.getKey();
+
+  if(keypadData){
+    interaction = interaction | 16;
+    
+    return;
+  }
+
   return;
 }
 
@@ -154,6 +212,93 @@ void LCDmessageDisplay(String topMessage, String botMessage){
     }
     return;
 }
+
+
+//user function to create a new password. 
+/* global variables
+ * firstPassword
+ * secPassword
+ * currentState
+ * 
+ */
+void newPassword(){
+  
+
+
+  //if the passwords did not match we want the user to see the message for an amount of time
+  //and be able to break the message and start entering the passwords again.
+  if(currentState == B00000011 || 0){
+      if(keypadData > 0 || RTdifference(RTinteraction) > 10000){
+        currentState = currentState & B11111100;
+      }
+  }
+
+  //Before the user enters the passcode
+  if(currentState == 0 || 0){
+    LCDmessageDisplay(" Please Enter a ","4 Digit Passcode");
+    currentState = currentState | B00000001;
+  }
+  
+  if(currentState == B00000001 || 0){
+    if(keypadData > 47 && keypadData < 58){
+      firstPassword = (firstPassword * 100) + keypadData;
+      if(firstPassword < 100){
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("4 Digit Passcode");
+        lcd.setCursor(0,1);
+        lcd.print("*");
+      }else{
+        lcd.print("*");
+      }
+    }
+  }
+  
+  //User verifies the entered passcode
+  if(currentState == B00000010 || 0){
+    if(keypadData > 47 && keypadData < 58){
+      secPassword = ((secPassword * 100) + keypadData);
+      if(secPassword < 100){
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("  The Passcode  ");
+        lcd.setCursor(0,1);
+        lcd.print("*");
+      }else{
+        lcd.print("*");
+      }
+      if(secPassword > 48484847){
+        //verify that the passwords match
+        if(firstPassword == secPassword){
+          currentState = currentState & B11111101;
+          currentState = currentState | B00000100;
+          //store password in EEPROM
+        }
+        if(firstPassword != secPassword){
+          LCDmessageDisplay(" The Passwords  "," Did Not Match  ");
+          RTinteraction = millis();
+          currentState = currentState | B00000011;
+          firstPassword = 0;
+          secPassword = 0;
+        }
+  
+      }
+    }
+  
+  }
+  
+  //outputs
+
+  //After the passcode has been entered once
+  if((currentState == B00000001 || 0) && (firstPassword > 48484847)){
+        currentState = currentState & B11111110;
+        currentState = currentState | B00000010;
+        LCDmessageDisplay("Please Re-Enter ","  The Passcode  ");
+  } 
+
+ }
+    
+  
 
 
 void printZones(){
@@ -204,11 +349,13 @@ void setupCheck(){
       EEArmed = EEPROM.read(EEAddArmed);
       EEPassword = EEPROM.read(EEAddPassword);
       EEPROM.get(EEAddMonitoredZones,EEMonitoredZones);
+      //currentState = ;
       return;
     }
 
     //run user setup with 1 indicating that this is a new setup
-    userSetup(1);
+    currentState = 0;
+    userSetup();
 
     return;
 }
@@ -232,90 +379,102 @@ void siren(){
 }
 
 
-
-void userSetup(byte newSetup){
-  byte input;
+//uses global variables currentState
+void userSetup(){
+ 
   
-  
-  if(newSetup == 1){
-    bool passwordSet = 0;
+  if(currentState == 0){
+    firstPassword = 0;
+    secPassword = 0;
 
-    
-    while(!passwordSet){
-      unsigned long int firstPassword = 0;
-      unsigned long int secPassword = 0;
-
-      //User enters passcode the first time
-      bool firstPasswordSet = 0;
-      LCDmessageDisplay(" Please Enter a ","4 Digit Passcode");
-      while(!firstPasswordSet){
-        //keyPad();
-        serialInput();
-        //Serial.println(firstPassword);
-        if(serialData > 47 && serialData < 58){
-          Serial.println(firstPassword);
-          Serial.println(serialData);
-          firstPassword = firstPassword * 100;
-          Serial.println(firstPassword);
-          firstPassword = firstPassword + serialData;
-          Serial.println("equals");
-          Serial.println(firstPassword);
-          //Serial.print(firstPassword);
-          if(firstPassword < 100){
-            lcd.clear();
-            lcd.setCursor(0,0);
-            lcd.print("4 Digit Passcode");
-            lcd.setCursor(0,1);
-            lcd.print("*");
-          }else{
-            lcd.print("*");
-          }
-          if(firstPassword > 48484847){
-            firstPasswordSet = 1;
-          }
-        }
-      
-      }
-
-      //User verifies the entered passcode
-      bool secPasswordSet = 0;
-      LCDmessageDisplay("Please Re-Enter ","  The Passcode  ");
-      while(!secPasswordSet){
-        //keyPad();
-        serialInput();
-        if(serialData > 47 && serialData < 58){
-          secPassword = ((secPassword * 100) + serialData);
-          if(secPassword < 100){
-            lcd.clear();
-            lcd.setCursor(0,0);
-            lcd.print("  The Passcode  ");
-            lcd.setCursor(0,1);
-            lcd.print("*");
-          }else{
-            lcd.print("*");
-          }
-          if(secPassword > 48484847){
-            secPasswordSet = 1;
-          }
-        }
-      
-      }
-
-      //verify that the passwords match
-      if(firstPassword == secPassword){
-         passwordSet = 1;
-         //hash password
-
-         //store password in EEPROM
-      }
-      if(firstPassword != secPassword){
-         LCDmessageDisplay(" The Passwords  "," Did Not Match  ");
-      }
-
-      //this among other things should be changed for changing the password on a live setup.
-      delay(5000);
-      
+    while(currentState < B00000100){
+      keypadInput();
+      newPassword();
+      Serial.println(currentState);
     }
+
+    while(currentState < B00001000){
+      if(currentState == B00000100){
+         LCDmessageDisplay("Please Enter 1-5","For Watched Zone");
+         currentState = B00000101;
+      }
+    }
+      
+//    while(!passwordSet){
+//      unsigned long int firstPassword = 0;
+//      unsigned long int secPassword = 0;
+//
+//      //User enters passcode the first time
+//      bool firstPasswordSet = 0;
+//      LCDmessageDisplay(" Please Enter a ","4 Digit Passcode");
+//      while(!firstPasswordSet){
+//        //keyPad();
+//        serialInput();
+//        //Serial.println(firstPassword);
+//        if(serialData > 47 && serialData < 58){
+//          Serial.println(firstPassword);
+//          Serial.println(serialData);
+//          firstPassword = firstPassword * 100;
+//          Serial.println(firstPassword);
+//          firstPassword = firstPassword + serialData;
+//          Serial.println("equals");
+//          Serial.println(firstPassword);
+//          //Serial.print(firstPassword);
+//          if(firstPassword < 100){
+//            lcd.clear();
+//            lcd.setCursor(0,0);
+//            lcd.print("4 Digit Passcode");
+//            lcd.setCursor(0,1);
+//            lcd.print("*");
+//          }else{
+//            lcd.print("*");
+//          }
+//          if(firstPassword > 48484847){
+//            firstPasswordSet = 1;
+//          }
+//        }
+//      
+//      }
+//
+//      //User verifies the entered passcode
+//      bool secPasswordSet = 0;
+//      LCDmessageDisplay("Please Re-Enter ","  The Passcode  ");
+//      while(!secPasswordSet){
+//        //keyPad();
+//        serialInput();
+//        if(serialData > 47 && serialData < 58){
+//          secPassword = ((secPassword * 100) + serialData);
+//          if(secPassword < 100){
+//            lcd.clear();
+//            lcd.setCursor(0,0);
+//            lcd.print("  The Passcode  ");
+//            lcd.setCursor(0,1);
+//            lcd.print("*");
+//          }else{
+//            lcd.print("*");
+//          }
+//          if(secPassword > 48484847){
+//            secPasswordSet = 1;
+//          }
+//        }
+//      
+//      }
+//
+//      //verify that the passwords match
+//      if(firstPassword == secPassword){
+//         passwordSet = 1;
+//         //hash password
+//
+//         //store password in EEPROM
+//      }
+//      if(firstPassword != secPassword){
+//         LCDmessageDisplay(" The Passwords  "," Did Not Match  ");
+//      }
+//
+//      //this among other things should be changed for changing the password on a live setup.
+//      delay(5000);
+//      
+//  }
     
   }
   
