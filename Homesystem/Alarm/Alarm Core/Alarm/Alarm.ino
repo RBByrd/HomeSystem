@@ -79,7 +79,24 @@
   Keypad keypad = Keypad( makeKeymap(keys), keyRowPins, keyColPins, KEYROWS, KEYCOLS );
   byte keypadData;
 
-
+  //loop variables
+  
+  //RT (Real Time) variables need to be unsigned long to interact with the millis() function
+  
+  //RTinteration is the latest time that the system has seen interaction.
+  unsigned long RTinteraction = millis();
+  unsigned long RTmessageHold = millis();
+  
+  /* The interaction variable will denote current interaction 
+   * to keep this to one variable a bit will be assigened to the following
+   * serial    1
+   * Zones     8
+   * settings 12
+   * keypad   16
+   */
+  unsigned int interaction;
+  
+  int serialData;
   
 
 void setup() {
@@ -99,23 +116,7 @@ void setup() {
 }
 
 
-//loop variables
 
-//RT (Real Time) variables need to be unsigned long to interact with the millis() function
-
-//RTinteration is the latest time that the system has seen interaction.
-unsigned long RTinteraction = millis();
-
-/* The interaction variable will denote current interaction 
- * to keep this to one variable a bit will be assigened to the following
- * serial    1
- * Zones     8
- * settings 12
- * keypad   16
- */
-unsigned int interaction;
-
-int serialData;
 
 
 /*The loop function should be thought of as a while(1) loop. 
@@ -140,7 +141,7 @@ void loop() {
 
   //loop outputs
   //printZones();
-  LCDbacklight(RTinteraction);
+  LCDbacklight();
   //serialOutput();
 
 
@@ -158,22 +159,23 @@ void getInteractionTime(bool interaction){
   return;
 }
 
+
+//Check and collect input from the keypad
 void keypadInput(){
 
   keypadData = keypad.getKey();
 
   if(keypadData){
     interaction = interaction | 16;
-    
+    RTinteraction = millis();
     return;
   }
-
   return;
 }
 
 
 //Turns on backlight after an interaction, and the backlight stays on for a set amount of time after the last interaction.
-void LCDbacklight(unsigned long RTinteraction){
+void LCDbacklight(){
     //how low in millisec the backlight should remain lit
     unsigned long RTblOnDelay = 15000;
 
@@ -228,7 +230,7 @@ void newPassword(){
   //if the passwords did not match we want the user to see the message for an amount of time
   //and be able to break the message and start entering the passwords again.
   if(currentState == B00000011 || 0){
-      if(keypadData > 0 || RTdifference(RTinteraction) > 10000){
+      if(keypadData > 0 || RTdifference(RTmessageHold) > 10000){
         currentState = currentState & B11111100;
       }
   }
@@ -276,7 +278,7 @@ void newPassword(){
         }
         if(firstPassword != secPassword){
           LCDmessageDisplay(" The Passwords  "," Did Not Match  ");
-          RTinteraction = millis();
+          RTmessageHold = millis();
           currentState = currentState | B00000011;
           firstPassword = 0;
           secPassword = 0;
@@ -328,9 +330,10 @@ void serialInput(){
       serialData = Serial.read();
       //Serial.println(serialData);
       interaction = interaction | 1;
+      RTinteraction = millis();
       return;
     }
-    interaction = interaction & 65,534;
+    interaction = interaction & B00000001;
     serialData = 0;
     return;
   
@@ -386,96 +389,21 @@ void userSetup(){
   if(currentState == 0){
     firstPassword = 0;
     secPassword = 0;
-
+    //user sets password
     while(currentState < B00000100){
       keypadInput();
       newPassword();
-      Serial.println(currentState);
     }
-
+    //user sets the zones to be monitored
     while(currentState < B00001000){
       if(currentState == B00000100){
          LCDmessageDisplay("Please Enter 1-5","For Watched Zone");
          currentState = B00000101;
+         RTinteraction = millis();
       }
+      LCDbacklight();
     }
-      
-//    while(!passwordSet){
-//      unsigned long int firstPassword = 0;
-//      unsigned long int secPassword = 0;
-//
-//      //User enters passcode the first time
-//      bool firstPasswordSet = 0;
-//      LCDmessageDisplay(" Please Enter a ","4 Digit Passcode");
-//      while(!firstPasswordSet){
-//        //keyPad();
-//        serialInput();
-//        //Serial.println(firstPassword);
-//        if(serialData > 47 && serialData < 58){
-//          Serial.println(firstPassword);
-//          Serial.println(serialData);
-//          firstPassword = firstPassword * 100;
-//          Serial.println(firstPassword);
-//          firstPassword = firstPassword + serialData;
-//          Serial.println("equals");
-//          Serial.println(firstPassword);
-//          //Serial.print(firstPassword);
-//          if(firstPassword < 100){
-//            lcd.clear();
-//            lcd.setCursor(0,0);
-//            lcd.print("4 Digit Passcode");
-//            lcd.setCursor(0,1);
-//            lcd.print("*");
-//          }else{
-//            lcd.print("*");
-//          }
-//          if(firstPassword > 48484847){
-//            firstPasswordSet = 1;
-//          }
-//        }
-//      
-//      }
-//
-//      //User verifies the entered passcode
-//      bool secPasswordSet = 0;
-//      LCDmessageDisplay("Please Re-Enter ","  The Passcode  ");
-//      while(!secPasswordSet){
-//        //keyPad();
-//        serialInput();
-//        if(serialData > 47 && serialData < 58){
-//          secPassword = ((secPassword * 100) + serialData);
-//          if(secPassword < 100){
-//            lcd.clear();
-//            lcd.setCursor(0,0);
-//            lcd.print("  The Passcode  ");
-//            lcd.setCursor(0,1);
-//            lcd.print("*");
-//          }else{
-//            lcd.print("*");
-//          }
-//          if(secPassword > 48484847){
-//            secPasswordSet = 1;
-//          }
-//        }
-//      
-//      }
-//
-//      //verify that the passwords match
-//      if(firstPassword == secPassword){
-//         passwordSet = 1;
-//         //hash password
-//
-//         //store password in EEPROM
-//      }
-//      if(firstPassword != secPassword){
-//         LCDmessageDisplay(" The Passwords  "," Did Not Match  ");
-//      }
-//
-//      //this among other things should be changed for changing the password on a live setup.
-//      delay(5000);
-//      
-//  }
-    
+    //user sets
   }
   
 }
