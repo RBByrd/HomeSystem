@@ -1,19 +1,24 @@
-Where to start with building a website
-
 	TODO
-		1. Build the project
-			- creating the folders
-			- creating files
-			- connecting the files
-		2. Navbar
-			- 2 links
-		3. Portfolio item grid
-			- images
-			-titles
-			-descriptions
-			-animations
-			-javascript
-		4. About page
-			- image
-			- split column layout
-			- content
+		User privileges
+			Admin/Owner
+			Guest
+			Trusted Guest
+
+		Bar
+			List appropriate times to use
+			create a way to list spirits that can easily be edited.
+				possibly a way to rank the spirit so that way only approved ones are repurchased
+			coctail recipes that can be displayed based on available spirits.
+			user functionality to interact with recipes
+		Lights
+			Requires hardware, revisit then.
+		Layout
+			create a home layout with a legend
+		Security
+			Alarm
+				display layout of the home with current zone state.
+				display alarm armed state.
+				access to the time logs
+			Cameras
+				Requires hardware, revisit then.
+
