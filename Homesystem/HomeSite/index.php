@@ -68,7 +68,6 @@
 
 					<div class="img-text-wrapper">
 						<div class="logo-wrapper">
-							<img src="Images/logos/Logo49.svg">
 							<div class="subtitle">
 								Coming Soon: The Bar
 							</div>
@@ -80,7 +79,6 @@
 
 					<div class="img-text-wrapper">
 						<div class="logo-wrapper">
-							<img src="Images/logos/Logo49.svg">
 							<div class="subtitle">
 								Coming Soon: Security
 							</div>
@@ -92,7 +90,6 @@
 
 					<div class="img-text-wrapper">
 						<div class="logo-wrapper">
-							<img src="Images/logos/Logo49.svg">
 							<div class="subtitle">
 								Coming Soon: Lights
 							</div>

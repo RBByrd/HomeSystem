@@ -144,11 +144,7 @@ void loop() {
   LCDbacklight();
   //serialOutput();
 
-
 }
-
-
-
 
 
 void getInteractionTime(bool interaction){
