@@ -1,416 +1,446 @@
-  /*
-   * Alarm Code
-   * 
-   * A basic alarm to function for basic home use.
-   * not meant for criminal protection or to be used as such
-   * 
-   * This code is meant to use alarm devices from an older install. 
-   * It is recommended to get an alarm service. No liability is to be taken by the author or anyone that modifies this code.
-   * 
-   */
-  
-  #include <Wire.h> 
-  
-  //using https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library.git
-  #include <LiquidCrystal_I2C.h>
-  #include <EEPROM.h>
-  
-  //using https://github.com/Chris--A/Keypad
-  //note: debounce is built into this function and works well.
-  #include<Keypad.h>
-
-  //Global Variables. Variables that will be used for the initial setup and during operation
-  
-  //IO State Variables
-  byte zoneStates[5];
-
-  //EEProm Variables: Information that we want stored in the case of lost power the system can return to original state on startup
-  int EEAddIntialized = 0;
-  byte EEIntialized;
-  int EEAddPassword = 4;
-  int EEPassword;
-  byte EEAddMonitoredZones = 8;
-  byte EEMonitoredZones[5];
-  //This may not get used as a way to save the alarm from wear by activating and deactivating
-  //int EEAddArmedAddress = 28;
-  //byte  EEArmedAddress;
-  int EEAddArmed = 32;
-  int EEArmed;
-
-
-  /*State:
-   * 0000 0000 New User 
-   * 0000 0001 New User setting PW
-   * 0000 0010 New User confirming PW
-   * 0000 0011 New User PW did not match
-   * 0000 0100 New User PW Set
-   * 0000 0101 New User setting Zones 1
-   * 
-   * 
-   * 
-   * 
-   */
-  byte currentState = 0;
-
-  //password function
-  unsigned long int firstPassword;
-  unsigned long int secPassword;
-  bool passwordSet;
-
-  //Initialize lcd variable
-  LiquidCrystal_I2C lcd(0x27, 16, 2);
-
-
-  const byte KEYROWS = 4; 
-  const byte KEYCOLS = 4;
-  
-  // I converted the type char to type byte, but kept the same ASCII decimal equivalent.
-  //I believe this will allow for a bit more fluid like interaction between the user and the system
-  byte keys[KEYROWS][KEYCOLS] = 
-  {
-    {49,50,51,65}, //1,2,3,A
-    {52,53,54,66}, //4,5,6,B
-    {55,56,57,67}, //7,8,9,C
-    {42,48,35,68}  //*,0,#,D
-  };
-  byte keyRowPins[KEYROWS] = {6, 5, 3, 2}; 
-  byte keyColPins[KEYCOLS] = {12, 11, 10, 9};
-  
-  Keypad keypad = Keypad( makeKeymap(keys), keyRowPins, keyColPins, KEYROWS, KEYCOLS );
-  byte keypadData;
-
-  //loop variables
-  
-  //RT (Real Time) variables need to be unsigned long to interact with the millis() function
-  
-  //RTinteration is the latest time that the system has seen interaction.
-  unsigned long RTinteraction = millis();
-  unsigned long RTmessageHold = millis();
-  
-  /* The interaction variable will denote current interaction 
-   * to keep this to one variable a bit will be assigened to the following
-   * serial    1
-   * Zones     8
-   * settings 12
-   * keypad   16
-   */
-  unsigned int interaction;
-  
-  int serialData;
-  
-
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-
-  //LCD boot
-  LCDInitialize();
-  
-  //tests if the system has been setup before. Does not progress if the system has not been setup, or the memory has become corrupt. The system will stay in this function until the system is setup.
-  setupCheck();
-
-  //set the zones to the correct HW state
-  setZones();
-
-  zoneRead(zoneStates);
-}
-
-
-
-
-
-/*The loop function should be thought of as a while(1) loop. 
-*
-*Keeping this in mind each function used in the loop should be executed in a timely manner that does not hold up the system 
-*
-*/
-void loop() {
-  //Serial.println(LCDbldelay);
-  
-  //initialize loop
-  interaction = 0;
-
-  //loop inputs
-  //zoneRead(zoneStates);
-  //keyPad();
-  serialInput();
-
-
-  //system functions
-  getInteractionTime(interaction);
-
-  //loop outputs
-  //printZones();
-  LCDbacklight();
-  //serialOutput();
-
-}
-
-
-void getInteractionTime(bool interaction){
-  if(interaction > 0){
-    RTinteraction = millis();
-    return;
-  }
-  return;
-}
-
-
-//Check and collect input from the keypad
-void keypadInput(){
-
-  keypadData = keypad.getKey();
-
-  if(keypadData){
-    interaction = interaction | 16;
-    RTinteraction = millis();
-    return;
-  }
-  return;
-}
-
-
-//Turns on backlight after an interaction, and the backlight stays on for a set amount of time after the last interaction.
-void LCDbacklight(){
-    //how low in millisec the backlight should remain lit
-    unsigned long RTblOnDelay = 15000;
-
-    if((RTdifference(RTinteraction) < RTblOnDelay) && !lcd.getBacklight()){
-      lcd.backlight();
-      return;
-    }
-    if((RTdifference(RTinteraction) > RTblOnDelay) && lcd.getBacklight()){
-       lcd.noBacklight();
-       return;
-    }
-
-}
-
-
-void LCDInitialize(){
-  
-  lcd.begin();
-  lcd.backlight();
-  lcd.clear();
-  LCDmessageDisplay("      BYRD      ","   PROTECTION   ");
-  delay(1000);
-}
-
-
-
-//displays a message to the LCD. when not using top or bottom pass "NULL" string.
-void LCDmessageDisplay(String topMessage, String botMessage){
-    if(topMessage != "NULL"){
-        lcd.setCursor(0,0);
-        lcd.print(topMessage);
-    }
-    if(botMessage != "NULL"){
-        lcd.setCursor(0,1);
-        lcd.print(botMessage);
-    }
-    return;
-}
-
-
-//user function to create a new password. 
-/* global variables
- * firstPassword
- * secPassword
- * currentState
+/*
+ * Alarm Code
+ * 
+ * A basic alarm to function for basic home use.
+ * not meant for criminal protection or to be used as such
+ * 
+ * This code is meant to use alarm devices from an older install. 
+ * It is recommended to get an alarm service. No liability is to be taken by the author or anyone that modifies this code.
  * 
  */
-void newPassword(){
-  
+
+#include <Wire.h> 
+
+//using https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library.git
+#include <LiquidCrystal_I2C.h>
+#include <EEPROM.h>
+
+//using https://github.com/Chris--A/Keypad
+//note: debounce is built into this function and works well.
+#include <Keypad.h>
 
 
-  //if the passwords did not match we want the user to see the message for an amount of time
-  //and be able to break the message and start entering the passwords again.
-  if(currentState == B00000011 || 0){
-      if(keypadData > 0 || RTdifference(RTmessageHold) > 10000){
-        currentState = currentState & B11111100;
+
+
+///////////////////////Timer Alarm Timer Class///////////////////////////////
+class AlarmTimer{
+    public:
+      const static unsigned long tAMaxTime = 4294967295;
+      
+      static unsigned long tACurrent;
+      static unsigned long tAUserInteraction;
+      static unsigned long tASystemInteraction;
+      unsigned long tATimer;      
+    
+    
+    public:
+      void tAGetCurrent(){
+        tACurrent = millis();
       }
+
+      void tASetUserInteraction(){
+         tAUserInteraction = millis();
+      }
+
+      void tASetSystemInteraction(){
+         tASystemInteraction = millis();
+      }
+      //find the amount of time that has passed since RTstart to current time. maximuim amount of time is 4294967295 milliseconds, ~50 days
+      unsigned long tAGetTimeDifference(unsigned long tAStart, unsigned long tAEnd){
+          if(tAStart <= tAEnd)
+              return tAEnd - tAStart;
+          return (tAMaxTime - tAStart) + tAEnd;
+      }
+      
+      unsigned long tALastUserInteraction(){
+          return tAGetTimeDifference(tAUserInteraction, tACurrent);
+      }
+
+      unsigned long tALastSystemInteraction(){
+          return tAGetTimeDifference(tASystemInteraction, tACurrent);
+      }
+
+      unsigned long tALastInteraction(){
+          unsigned long tASys = tALastSystemInteraction();
+          unsigned long tAUsr = tALastUserInteraction();
+          if(tASys > tAUsr)
+            return tAUsr;
+          return tASys;
+      }
+
+  
+};
+
+//Define the Static Variables
+unsigned long AlarmTimer::tACurrent;
+unsigned long AlarmTimer::tAUserInteraction;
+unsigned long AlarmTimer::tASystemInteraction;
+
+
+///////////////////////Alarm User Class/////////////////////////////
+
+struct AlarmUser{
+
+  bool uAMenuPressed = false;
+  bool uAInteraction = false;
+  AlarmTimer userTimer;
+  
+  
+
+  void uASetInteraction(){
+       userTimer.tASetUserInteraction();
+       uAInteraction = true;
   }
 
-  //Before the user enters the passcode
-  if(currentState == 0 || 0){
-    LCDmessageDisplay(" Please Enter a ","4 Digit Passcode");
-    currentState = currentState | B00000001;
+  void uASetMenuPressed(){
+      uAMenuPressed = true;
   }
   
-  if(currentState == B00000001 || 0){
-    if(keypadData > 47 && keypadData < 58){
-      firstPassword = (firstPassword * 100) + keypadData;
-      if(firstPassword < 100){
-        lcd.clear();
-        lcd.setCursor(0,0);
-        lcd.print("4 Digit Passcode");
-        lcd.setCursor(0,1);
-        lcd.print("*");
-      }else{
-        lcd.print("*");
-      }
-    }
+  void uAClear(){
+       uAMenuPressed = false;
+       uAInteraction = false;
+       
+       
   }
   
-  //User verifies the entered passcode
-  if(currentState == B00000010 || 0){
-    if(keypadData > 47 && keypadData < 58){
-      secPassword = ((secPassword * 100) + keypadData);
-      if(secPassword < 100){
-        lcd.clear();
-        lcd.setCursor(0,0);
-        lcd.print("  The Passcode  ");
-        lcd.setCursor(0,1);
-        lcd.print("*");
-      }else{
-        lcd.print("*");
-      }
-      if(secPassword > 48484847){
-        //verify that the passwords match
-        if(firstPassword == secPassword){
-          currentState = currentState & B11111101;
-          currentState = currentState | B00000100;
-          //store password in EEPROM
+};
+
+
+///////////////////////keypad alarm keypad class/////////////////////////////
+
+
+class AlarmKeypad: public Keypad{
+    private:
+      static const byte m_KEYROWS = 4; 
+      static const byte m_KEYCOLS = 4;
+      static const byte m_maxStream = 16;
+      unsigned char m_keys[m_KEYROWS][m_KEYCOLS] = 
+      {
+        {'1','2','3','A'}, //1,2,3,A = Cancel
+        {'4','5','6','B'}, //4,5,6,B = Clear
+        {'7','8','9','C'}, //7,8,9,C = Menu
+        {'*','0','#','D'}  //*,0,#,D = Enter
+      };
+      byte m_keyRowPins[m_KEYROWS] = {6, 5, 3, 2}; 
+      byte m_keyColPins[m_KEYCOLS] = {12, 11, 10, 9};
+      char m_keyData;
+      AlarmUser* user;
+
+    public:
+
+      enum kaKey: unsigned char{kaOne = '1',kaTwo = '2',kaThree = '3',kaCancel = 'A',
+                                kaFour = '4',kaFive = '5',kaSix = '6',kaClear = 'B',
+                                kaSeven = '7',kaEight = '8',kaNine = '9',kaMenu = 'C',
+                                kaAstrick = '*',kaZero = '0',kaPound = '#',kaEnter = 'D'};
+      unsigned char kaStringStream[m_maxStream];
+      byte StringStreamPosition;
+      unsigned long int kaIntStream;
+      unsigned char kaCommand;
+      enum kaKeyStates: byte {kaNoUStream, kaIntUStream, kaStringUStream};
+      byte kaKeyState;
+
+    private:
+      void m_kaStream(){
+        switch(kaKeyState){
+          case kaNoUStream:
+            return;
+          case kaIntUStream:
+            kaIntStream = (kaIntStream * 10) + (m_keyData - '0');
+            return;
+          case kaStringUStream:
+            if(StringStreamPosition > 14)
+              return;
+            kaStringStream[StringStreamPosition] = m_keyData;         
+            StringStreamPosition++;
+            return;
         }
-        if(firstPassword != secPassword){
-          LCDmessageDisplay(" The Passwords  "," Did Not Match  ");
-          RTmessageHold = millis();
-          currentState = currentState | B00000011;
-          firstPassword = 0;
-          secPassword = 0;
+      }
+
+      void m_kaCommand(){
+        switch(kaKeyState){
+          case kaNoUStream:
+            if(m_keyData == kaMenu){
+              Serial.print('c');
+              user->uASetMenuPressed();
+              return;
+            }
+            return;            
+          case kaIntUStream:
+            if(m_keyData == kaClear){
+              kaIntStream = 0;
+              return;
+            }        
+          case kaStringUStream:
+            if(m_keyData == kaClear){
+              kaClearStream();
+              return;
+            }
+            if(m_keyData == kaEnter){
+              if(StringStreamPosition == 0)
+                return;
+              for(StringStreamPosition; StringStreamPosition >= 0; StringStreamPosition--){
+                  kaStringStream[StringStreamPosition] = '\0';
+              }
+              return;
+            }
         }
-  
+      }
+    
+    public:
+      AlarmKeypad(AlarmUser* _user)
+        :Keypad( makeKeymap(m_keys), m_keyRowPins, m_keyColPins, m_KEYROWS, m_KEYCOLS),StringStreamPosition(0),kaCommand('\0'),kaKeyState(kaNoUStream), user(_user)
+      {
+        for(byte i = 0; i < m_maxStream; i++)
+          kaStringStream[i] = '\0';
+
+      }
+
+      void kaGet(){
+          m_keyData = getKey();
+          
+          if(m_keyData == '\0')
+            return;
+
+          user->uASetInteraction();
+          if(m_keyData >= kaZero and m_keyData <= kaNine){
+             m_kaStream();
+             return;
+          }
+          if(m_keyData >= kaCancel and m_keyData <= kaEnter){
+             m_kaCommand();
+             return;
+          }
+
+          
+            
+      }
+      
+      void kaClearStream(){
+        kaIntStream = 0;
+        
+        if(StringStreamPosition == 0)
+          return;
+        
+        for(StringStreamPosition; StringStreamPosition >= 0; StringStreamPosition--)
+            kaStringStream[StringStreamPosition] = '\0';
+        
+        return;
+      }
+};
+
+
+
+
+
+
+
+
+///////////////////////Menu Alarm Class/////////////////////////////
+
+class AlarmMenu {
+    protected:
+
+    public:
+        const char* title;
+        AlarmMenu* childMenu;
+        bool mAHasChild;
+        AlarmMenu* nextMenu;
+        bool mAHasNext;
+        
+    AlarmMenu(const char* _title)
+      :title(_title){
+
+    }
+      
+    AlarmMenu(const char* _title,AlarmMenu& prev)
+      :title(_title){        
+        AlarmMenu* next = this;
+        prev.nextMenu = next;
+        prev.mAHasNext = true;
+    }
+    
+    AlarmMenu(const char* _title,AlarmMenu& parent, byte generation)
+      :title(_title){        
+        AlarmMenu* child = this;
+        parent.childMenu = child;
+        parent.mAHasChild = true;
+    }
+
+
+
+};
+
+//duplicate Menu titles to save memory
+const char  *newPwTitle = "New Password";
+const char *reEnterPWTitle = "Reenter Password";
+
+
+//MenuItems
+AlarmMenu mainMenu("Main Menu");
+
+AlarmMenu enterPasswordMenu("Enter Password"); 
+
+AlarmMenu displayMenu("Display Settings",mainMenu);
+AlarmMenu lcdBacklightMenu("LCD BL Timer (S)",displayMenu, 1);
+
+AlarmMenu passwordMenu("Password",displayMenu);
+AlarmMenu newPasswordMenu(newPwTitle,passwordMenu, 1);
+AlarmMenu reEnterPassword(reEnterPWTitle,newPasswordMenu, 2);
+
+AlarmMenu tempPasswordMenu("Temp Password",newPasswordMenu);
+AlarmMenu newTempPasswordMenu(newPwTitle,tempPasswordMenu, 1);
+AlarmMenu reEnterTempPassword(reEnterPWTitle,newTempPasswordMenu, 2);
+
+
+
+
+
+
+class Alarm {
+    protected:
+
+    public:
+      AlarmUser* user;
+      AlarmMenu* mainMenu;
+      AlarmMenu* currentMenu;
+
+
+      Alarm(AlarmUser* _user, AlarmMenu* _mainMenu)
+        : user(_user), mainMenu(_mainMenu), currentMenu(_mainMenu)
+      {
+        
+      }
+
+      void sys(){
+        if(user->uAMenuPressed){
+          Serial.print(currentMenu->mAHasNext);
+          if(currentMenu->mAHasNext){
+            currentMenu = currentMenu->nextMenu;
+          }
+          else{
+            currentMenu = mainMenu;
+          }
+        }
+        
+      }
+
+
+};
+
+
+//TODO(RBByrd) create a serial communication class
+//class AlarmSerial: 
+//
+//    protected:
+//
+//
+//    public:
+//
+//
+//};
+
+
+///////////////////////LCD Alarm Class/////////////////////////////
+
+class AlarmLCD: public LiquidCrystal_I2C{
+
+    private:
+      byte m_lcdPin = 0x27;
+      uint8_t m_lcdLen = 16;
+      uint8_t m_lcdHeight = 2;
+      AlarmTimer lcdTimer;
+      
+    public:
+      //how low in millisec the backlight should remain lit
+      unsigned long lcdBlOnDelay = 15000;
+
+      Alarm* alarm;
+      AlarmUser* user;
+      
+      enum LcdStates: byte {LCDWrite, LCDIdle, LCDUserInput, LCDOff};
+        
+
+    public:
+      AlarmLCD(Alarm* _alarm, AlarmUser* _user)
+        :LiquidCrystal_I2C(0x27, 16, m_lcdHeight), alarm(_alarm), user(_user)
+      {
+
+      }
+
+      //Turns on backlight after an interaction, and the backlight stays on for a set amount of time after the last interaction.
+    void LaBacklight(){
+      unsigned long RTdifference = lcdTimer.tALastInteraction();
+      if((RTdifference < lcdBlOnDelay) && !getBacklight()){
+        backlight();
+        return;
+      }
+      if((RTdifference > lcdBlOnDelay) && getBacklight()){
+         noBacklight();
+         return;
       }
     }
-  
-  }
-  
-  //outputs
-
-  //After the passcode has been entered once
-  if((currentState == B00000001 || 0) && (firstPassword > 48484847)){
-        currentState = currentState & B11111110;
-        currentState = currentState | B00000010;
-        LCDmessageDisplay("Please Re-Enter ","  The Passcode  ");
-  } 
-
- }
-    
-  
 
 
-void printZones(){
-  for (int i = 0; i < 5; i ++){
-    Serial.print("Zone ");
-    Serial.println(i+1);
-    Serial.println(zoneStates[i]);    
-  }
-}
-
-
-//find the amount of time that has passed since RTstart to current time. maximuim amount of time is 4294967295 milliseconds, ~50 days
-unsigned long RTdifference(unsigned long RTstart){
-    unsigned long RTcurrent = millis();
-    
-    if(RTstart <= RTcurrent){
-        return RTcurrent - RTstart;  
+    void LaInit(){
+          begin();
+          backlight();
+          clear();
+          //LCDmessageDisplay("      BYRD      ","   PROTECTION   ");
+          delay(5000);
+    }
+    void LaDisplay(){
+      
+      if(user->uAInteraction){
+        clear();
+        setCursor(0,0);
+        print(alarm->currentMenu->title);
+      }
+      //blink();
     }
 
-    return (4294967295 - RTstart) + RTcurrent;
-  
-}
-
-
-void serialInput(){
-   if (Serial.available() > 0){
-      serialData = Serial.read();
-      //Serial.println(serialData);
-      interaction = interaction | 1;
-      RTinteraction = millis();
-      return;
-    }
-    interaction = interaction & B00000001;
-    serialData = 0;
-    return;
-  
-}
-
-
-void setupCheck(){
-
-    //Test value to check if the system has been setup before. If the system does no
-    byte setupVarification = 170;
-
-    EEIntialized = EEPROM.read(EEAddIntialized);
-    
-    //if the value stored in memory matches the verification then retrieve the other values then return to setup
-    if(EEIntialized == setupVarification){
-      EEArmed = EEPROM.read(EEAddArmed);
-      EEPassword = EEPROM.read(EEAddPassword);
-      EEPROM.get(EEAddMonitoredZones,EEMonitoredZones);
-      //currentState = ;
-      return;
+    void LaOut(){
+      LaBacklight();
+      LaDisplay();
     }
 
-    //run user setup with 1 indicating that this is a new setup
-    currentState = 0;
-    userSetup();
+      
+};
 
-    return;
+
+
+
+
+
+
+
+
+
+
+
+  AlarmTimer sysTimer;
+  AlarmUser user;
+  AlarmKeypad keypad(&user);
+  Alarm alarm(&user, &mainMenu);
+  AlarmLCD lcd(&alarm, &user);
+
+
+void setup() {
+  Serial.begin(9600);
+  lcd.LaInit();
+
 }
+void loop() {
 
+  user.uAClear();
+  //inputs
+  sysTimer.tAGetCurrent();
 
-void setZones(){
-  //Zones 1-5 of the alarm system
-  //These pins Digital IO only where as the others have other functions (PWM, Serial Comms, Ect.)
-  pinMode(4, INPUT_PULLUP); 
-  pinMode(7, INPUT_PULLUP); 
-  pinMode(8, INPUT_PULLUP); 
-  pinMode(12, INPUT_PULLUP); 
-  pinMode(13, INPUT_PULLUP); 
+  keypad.kaGet();
 
+  //functionality
+  alarm.sys();
   
-}
-
-
-void siren(){
-  
-}
-
-
-//uses global variables currentState
-void userSetup(){
  
-  
-  if(currentState == 0){
-    firstPassword = 0;
-    secPassword = 0;
-    //user sets password
-    while(currentState < B00000100){
-      keypadInput();
-      newPassword();
-    }
-    //user sets the zones to be monitored
-    while(currentState < B00001000){
-      if(currentState == B00000100){
-         LCDmessageDisplay("Please Enter 1-5","For Watched Zone");
-         currentState = B00000101;
-         RTinteraction = millis();
-      }
-      LCDbacklight();
-    }
-    //user sets
-  }
-  
-}
-
-
-void zoneRead(byte *zoneStates){
-  
-  zoneStates[0] = digitalRead(4);
-  zoneStates[1] = digitalRead(7);
-  zoneStates[2] = digitalRead(8);
-  zoneStates[3] = digitalRead(12);
-  zoneStates[4] = digitalRead(13);
-  
+  //outputs
+  lcd.LaOut();
 }
